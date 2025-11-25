@@ -12,12 +12,12 @@ const PORT = process.env.PORT || 3000
 // Middleware
 app.use(express.static('public'))
 app.use(express.static('dist'))
-app.use('/assets', express.static('src/assets'))
+// app.use('/assets', express.static('src/assets')) // No longer needed for meme-base
 
 // API Routes
 app.get('/api/meme-list', (req, res) => {
   try {
-    const memeBasePath = path.join(__dirname, 'src/assets/meme-base')
+    const memeBasePath = path.join(__dirname, 'public/meme-base')
     
     if (!fs.existsSync(memeBasePath)) {
       return res.json([])
@@ -28,7 +28,7 @@ app.get('/api/meme-list', (req, res) => {
       .sort()
       .map((file, index) => ({
         name: `表情 ${index + 1}`,
-        path: `/assets/meme-base/${file}`,
+        path: `/meme-base/${file}`,
         filename: file
       }))
     
@@ -55,5 +55,5 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🐧 企鹅表情包制作工具正在运行 http://localhost:${PORT}`)
-  console.log(`   表情包库: ${path.join(__dirname, 'src/assets/meme-base')}`)
+  console.log(`   表情包库: ${path.join(__dirname, 'public/meme-base')}`)
 })

@@ -13,14 +13,14 @@ const memesListPlugin = {
   },
   load(id) {
     if (id === 'virtual-memes-list') {
-      const memeBasePath = path.resolve(__dirname, 'src/assets/meme-base')
+      const memeBasePath = path.resolve(__dirname, 'public/meme-base')
       try {
         const files = fs.readdirSync(memeBasePath)
           .filter(f => /\.(webp|jpg|jpeg|png)$/i.test(f))
           .sort()
           .map((f, i) => ({
             name: `表情 ${i + 1}`,
-            path: `/src/assets/meme-base/${f}`,
+            path: `/meme-base/${f}`,
             filename: f
           }))
         return `export default ${JSON.stringify(files)}`
