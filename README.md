@@ -1,4 +1,4 @@
-# 🐧 企鹅表情包制作工具 (Penguin Meme Maker)
+# 🐧 恶俗企鹅/高雅人士 表情包制作工具 (Penguin Meme Maker)
 
 一个基于 Vue 3 + Vite 的在线表情包制作工具，支持拖拽文字、自定义字体颜色、导出图片等功能。
 
@@ -44,8 +44,8 @@
 
 1. **克隆项目**
    ```bash
-   git clone https://github.com/Moeary/3Dalia-penguin-maker.git
-   cd 3Dalia-penguin-maker
+   git clone https://github.com/Moeary/Penguin-Meme-Maker.git
+   cd Penguin-Meme-Maker
    ```
 
 2. **安装依赖**
