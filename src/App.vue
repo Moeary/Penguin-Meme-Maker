@@ -43,6 +43,9 @@ const textToolActive = ref(false)
 const fontSize = ref(24)
 const fontFamily = ref('Arial')
 const textColor = ref('#000000')
+const canvasSize = ref(512)
+const canvasZoom = ref(100)
+const showHelp = ref(false)
 
 const fontsOptions = [
   { label: 'Arial', value: 'Arial' },
@@ -171,14 +174,17 @@ const addText = () => {
 
       <!-- 中间画布编辑器 -->
       <section class="editor-container">
-        <CanvasEditor 
-          ref="editorRef" 
-          :image="selectedImage"
-          :text-color="textColor"
-          :font-size="fontSize"
-          :font-family="fontFamily"
-          @mode-change="(val) => textToolActive = val"
-        />
+        <div :style="{ transform: `scale(${canvasZoom / 100})`, transformOrigin: 'center', transition: 'transform 0.2s' }">
+          <CanvasEditor 
+            ref="editorRef" 
+            :image="selectedImage"
+            :text-color="textColor"
+            :font-size="fontSize"
+            :font-family="fontFamily"
+            :canvas-size="canvasSize"
+            @mode-change="(val) => textToolActive = val"
+          />
+        </div>
       </section>
 
       <!-- 右侧导出面板 -->
@@ -265,6 +271,47 @@ const addText = () => {
 
         <div class="toolbar-divider"></div>
 
+        <!-- 画布设置 -->
+        <div class="tool-group">
+          <label>尺寸:</label>
+          <el-input-number 
+            v-model="canvasSize" 
+            :min="128" 
+            :max="2048" 
+            :step="128"
+            size="small"
+            style="width: 90px"
+            title="画布像素大小"
+          />
+        </div>
+
+        <div class="tool-group">
+          <label>缩放:</label>
+          <el-input-number 
+            v-model="canvasZoom" 
+            :min="20" 
+            :max="300" 
+            :step="10"
+            size="small"
+            style="width: 80px"
+            :formatter="(value) => `${value}%`"
+            :parser="(value) => value.replace('%', '')"
+            title="画布显示缩放"
+          />
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- 帮助按钮 -->
+        <el-button 
+          circle 
+          size="small" 
+          @click="showHelp = true"
+          title="使用说明"
+        >
+          ❓
+        </el-button>
+
         <!-- 导出按钮 -->
         <el-button 
           type="success" 
@@ -284,6 +331,33 @@ const addText = () => {
         </el-button>
       </el-space>
     </footer>
+
+    <!-- 帮助弹窗 -->
+    <el-dialog v-model="showHelp" title="🐧 使用说明" width="500px">
+      <div class="help-content">
+        <h3>基础操作</h3>
+        <ul>
+          <li><strong>选择表情包</strong>：点击左侧列表或粘贴 (Ctrl+V) 外部图片。</li>
+          <li><strong>添加文字</strong>：点击"插入文字模式"或按 <strong>T</strong> 键，然后点击画布。</li>
+          <li><strong>多选元素</strong>：按住 <strong>Ctrl</strong> 点击元素，或按 <strong>Ctrl+A</strong> 全选。</li>
+        </ul>
+        
+        <h3>快捷键</h3>
+        <ul>
+          <li><strong>移动</strong>：拖拽元素 (多选时可一起移动)</li>
+          <li><strong>缩放/旋转</strong>：拖拽手柄 (仅单选时可用)</li>
+          <li><strong>删除</strong>：Delete / Backspace</li>
+          <li><strong>复制</strong>：Ctrl+C (复制图片)</li>
+          <li><strong>撤销/重做</strong>：Ctrl+Z / Ctrl+Shift+Z</li>
+        </ul>
+
+        <h3>画布设置</h3>
+        <ul>
+          <li><strong>尺寸</strong>：设置导出图片的实际像素大小 (默认 512px)。</li>
+          <li><strong>缩放</strong>：调整画布在屏幕上的显示大小，不影响导出。</li>
+        </ul>
+      </div>
+    </el-dialog>
   </div>
 </template>
 

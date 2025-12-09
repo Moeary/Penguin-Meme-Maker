@@ -15,6 +15,10 @@ const props = defineProps({
   fontFamily: {
     type: String,
     default: 'Arial'
+  },
+  canvasSize: {
+    type: Number,
+    default: 512
   }
 })
 
@@ -23,7 +27,7 @@ const canvas = ref(null)
 const ctx = ref(null)
 
 const elements = ref([])
-const selectedId = ref(null)
+const selectedIds = ref(new Set())
 const imageLoaded = ref(false)
 
 const isAddingText = ref(false)
@@ -38,14 +42,12 @@ const dialogSize = ref(props.fontSize)
 const isDragging = ref(false)
 const dragMode = ref(null) // 'move', 'rotate', 'scale-tl', 'scale-tr', 'scale-bl', 'scale-br'
 const dragStart = ref({ x: 0, y: 0 })
-const initialElementState = ref(null)
+const initialElementStates = ref({}) // Map of id -> state
 
 const contextMenu = ref({ visible: false, x: 0, y: 0, targetId: null })
 
 const history = ref([])
 const historyStep = ref(-1)
-
-const CANVAS_SIZE = 512
 
 const initCanvas = () => {
   canvas.value = canvasRef.value
@@ -54,8 +56,8 @@ const initCanvas = () => {
     return
   }
   ctx.value = canvas.value.getContext('2d', { willReadFrequently: true })
-  canvas.value.width = CANVAS_SIZE
-  canvas.value.height = CANVAS_SIZE
+  canvas.value.width = props.canvasSize
+  canvas.value.height = props.canvasSize
   drawCanvas()
 }
 
@@ -76,11 +78,14 @@ const handleKeyDown = (e) => {
       e.preventDefault()
       if (e.shiftKey) redo()
       else undo()
+    } else if (e.key === 'a') {
+      e.preventDefault()
+      selectAll()
     }
   }
   
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (selectedId.value && !isAddingText.value) {
+    if (selectedIds.value.size > 0 && !isAddingText.value) {
       deleteSelectedElement()
     }
   }
@@ -100,8 +105,8 @@ const handlePaste = async (e) => {
         let h = img.height
         
         // Auto-scale if too large (fit within 80% of canvas)
-        if (w > CANVAS_SIZE || h > CANVAS_SIZE) {
-          const scale = (CANVAS_SIZE * 0.8) / Math.max(w, h)
+        if (w > props.canvasSize || h > props.canvasSize) {
+          const scale = (props.canvasSize * 0.8) / Math.max(w, h)
           w *= scale
           h *= scale
         }
@@ -111,8 +116,8 @@ const handlePaste = async (e) => {
           content: img,
           width: w,
           height: h,
-          x: CANVAS_SIZE / 2,
-          y: CANVAS_SIZE / 2
+          x: props.canvasSize / 2,
+          y: props.canvasSize / 2
         })
       }
     }
@@ -159,29 +164,25 @@ const loadImage = (imagePath) => {
     imageLoaded.value = true
     
     // Calculate cover scale
-    const scale = Math.max(CANVAS_SIZE / img.width, CANVAS_SIZE / img.height)
+    const scale = Math.max(props.canvasSize / img.width, props.canvasSize / img.height)
     const w = img.width * scale
     const h = img.height * scale
     
     nextTick(() => {
-      console.log('Initializing canvas with ref:', canvasRef.value)
       initCanvas()
-      if (!canvas.value) {
-        console.error('Canvas ref is missing after nextTick')
-        return
-      }
+      if (!canvas.value) return
       
       elements.value = [{
         id: `img-${Date.now()}`,
         type: 'image',
         content: img,
-        x: CANVAS_SIZE / 2,
-        y: CANVAS_SIZE / 2,
+        x: props.canvasSize / 2,
+        y: props.canvasSize / 2,
         width: w,
         height: h,
         rotation: 0
       }]
-      selectedId.value = null
+      selectedIds.value.clear()
       drawCanvas()
       resetHistory()
     })
@@ -196,9 +197,9 @@ const loadImage = (imagePath) => {
 
 const drawCanvas = () => {
   if (!canvas.value || !ctx.value) return
-  ctx.value.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+  ctx.value.clearRect(0, 0, props.canvasSize, props.canvasSize)
   ctx.value.fillStyle = '#ffffff'
-  ctx.value.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+  ctx.value.fillRect(0, 0, props.canvasSize, props.canvasSize)
 
   elements.value.forEach(el => {
     ctx.value.save()
@@ -219,7 +220,7 @@ const drawCanvas = () => {
     }
     
     // Draw selection box if selected
-    if (el.id === selectedId.value) {
+    if (selectedIds.value.has(el.id)) {
       const w = el.type === 'text' ? getTextWidth(el) + 20 : el.width
       const h = el.type === 'text' ? el.size * 1.2 + 20 : el.height
       
@@ -228,30 +229,32 @@ const drawCanvas = () => {
       ctx.value.setLineDash([6, 4])
       ctx.value.strokeRect(-w/2, -h/2, w, h)
       
-      // Draw handles
-      ctx.value.setLineDash([])
-      ctx.value.fillStyle = '#fff'
-      ctx.value.strokeStyle = '#667eea'
-      
-      // Rotate handle
-      ctx.value.beginPath()
-      ctx.value.moveTo(0, -h/2)
-      ctx.value.lineTo(0, -h/2 - 20)
-      ctx.value.stroke()
-      ctx.value.beginPath()
-      ctx.value.arc(0, -h/2 - 20, 5, 0, Math.PI * 2)
-      ctx.value.fill()
-      ctx.value.stroke()
-      
-      // Resize handles
-      const handles = [
-        [-w/2, -h/2], [w/2, -h/2],
-        [w/2, h/2], [-w/2, h/2]
-      ]
-      handles.forEach(([hx, hy]) => {
-        ctx.value.fillRect(hx - 4, hy - 4, 8, 8)
-        ctx.value.strokeRect(hx - 4, hy - 4, 8, 8)
-      })
+      // Only draw handles if this is the ONLY selected item
+      if (selectedIds.value.size === 1) {
+        ctx.value.setLineDash([])
+        ctx.value.fillStyle = '#fff'
+        ctx.value.strokeStyle = '#667eea'
+        
+        // Rotate handle
+        ctx.value.beginPath()
+        ctx.value.moveTo(0, -h/2)
+        ctx.value.lineTo(0, -h/2 - 20)
+        ctx.value.stroke()
+        ctx.value.beginPath()
+        ctx.value.arc(0, -h/2 - 20, 5, 0, Math.PI * 2)
+        ctx.value.fill()
+        ctx.value.stroke()
+        
+        // Resize handles
+        const handles = [
+          [-w/2, -h/2], [w/2, -h/2],
+          [w/2, h/2], [-w/2, h/2]
+        ]
+        handles.forEach(([hx, hy]) => {
+          ctx.value.fillRect(hx - 4, hy - 4, 8, 8)
+          ctx.value.strokeRect(hx - 4, hy - 4, 8, 8)
+        })
+      }
     }
     
     ctx.value.restore()
@@ -282,9 +285,10 @@ const getLocalPoint = (px, py, el) => {
 }
 
 const hitTest = (x, y) => {
-  // Check handles first if something is selected
-  if (selectedId.value) {
-    const el = elements.value.find(e => e.id === selectedId.value)
+  // Check handles first if EXACTLY ONE item is selected
+  if (selectedIds.value.size === 1) {
+    const id = Array.from(selectedIds.value)[0]
+    const el = elements.value.find(e => e.id === id)
     if (el) {
       const { w, h } = getElementBounds(el)
       const local = getLocalPoint(x, y, el)
@@ -318,47 +322,93 @@ const onMouseDown = (event) => {
   const hit = hitTest(x, y)
   
   if (hit) {
-    selectedId.value = hit.el.id
+    const isSelected = selectedIds.value.has(hit.el.id)
+    
+    if (event.ctrlKey || event.metaKey) {
+      // Toggle selection
+      if (isSelected) {
+        selectedIds.value.delete(hit.el.id)
+      } else {
+        selectedIds.value.add(hit.el.id)
+      }
+    } else {
+      // Normal click
+      // If clicking a handle, we must ensure only this item is selected (handles only show for single selection anyway)
+      if (hit.handle !== 'move') {
+        selectedIds.value.clear()
+        selectedIds.value.add(hit.el.id)
+      } else {
+        // If clicking body
+        if (!isSelected) {
+          // If not already selected, select ONLY this (unless Shift/Ctrl held, handled above)
+          selectedIds.value.clear()
+          selectedIds.value.add(hit.el.id)
+        }
+        // If already selected, do nothing to selection (allows dragging group)
+      }
+    }
+
     dragMode.value = hit.handle
     dragStart.value = { x, y }
-    initialElementState.value = { ...hit.el }
+    
+    // Store initial state for ALL selected items
+    initialElementStates.value = {}
+    selectedIds.value.forEach(id => {
+      const el = elements.value.find(e => e.id === id)
+      if (el) initialElementStates.value[id] = { ...el }
+    })
+    
     isDragging.value = true
     closeContextMenu()
   } else {
-    selectedId.value = null
+    // Clicked empty space
+    if (!event.ctrlKey && !event.metaKey) {
+      selectedIds.value.clear()
+    }
   }
   drawCanvas()
 }
 
 const onMouseMove = (event) => {
-  if (!isDragging.value || !selectedId.value) return
+  if (!isDragging.value) return
   const { x, y } = getCanvasCoordinates(event)
-  const el = elements.value.find(e => e.id === selectedId.value)
-  if (!el) return
-
+  
   const dx = x - dragStart.value.x
   const dy = y - dragStart.value.y
-  const init = initialElementState.value
 
   if (dragMode.value === 'move') {
-    el.x = init.x + dx
-    el.y = init.y + dy
-  } else if (dragMode.value === 'rotate') {
-    const angle = Math.atan2(y - el.y, x - el.x)
-    const startAngle = Math.atan2(dragStart.value.y - el.y, dragStart.value.x - el.x)
-    el.rotation = init.rotation + (angle - startAngle)
-  } else if (dragMode.value.startsWith('scale')) {
-    // Simple scaling logic (center-based for simplicity)
-    // For better UX, scaling should be anchor-based, but center-based is easier to implement robustly in one go
-    const currentDist = Math.hypot(x - el.x, y - el.y)
-    const startDist = Math.hypot(dragStart.value.x - el.x, dragStart.value.y - el.y)
-    const scaleFactor = currentDist / startDist
+    // Move all selected items
+    selectedIds.value.forEach(id => {
+      const el = elements.value.find(e => e.id === id)
+      const init = initialElementStates.value[id]
+      if (el && init) {
+        el.x = init.x + dx
+        el.y = init.y + dy
+      }
+    })
+  } else if (selectedIds.value.size === 1) {
+    // Rotate/Scale (only works for single selection)
+    const id = Array.from(selectedIds.value)[0]
+    const el = elements.value.find(e => e.id === id)
+    const init = initialElementStates.value[id]
     
-    if (el.type === 'text') {
-      el.size = Math.max(10, init.size * scaleFactor)
-    } else {
-      el.width = Math.max(20, init.width * scaleFactor)
-      el.height = Math.max(20, init.height * scaleFactor)
+    if (el && init) {
+      if (dragMode.value === 'rotate') {
+        const angle = Math.atan2(y - el.y, x - el.x)
+        const startAngle = Math.atan2(dragStart.value.y - el.y, dragStart.value.x - el.x)
+        el.rotation = init.rotation + (angle - startAngle)
+      } else if (dragMode.value.startsWith('scale')) {
+        const currentDist = Math.hypot(x - el.x, y - el.y)
+        const startDist = Math.hypot(dragStart.value.x - el.x, dragStart.value.y - el.y)
+        const scaleFactor = currentDist / startDist
+        
+        if (el.type === 'text') {
+          el.size = Math.max(10, init.size * scaleFactor)
+        } else {
+          el.width = Math.max(20, init.width * scaleFactor)
+          el.height = Math.max(20, init.height * scaleFactor)
+        }
+      }
     }
   }
   drawCanvas()
@@ -368,7 +418,7 @@ const onMouseUp = () => {
   if (isDragging.value) {
     isDragging.value = false
     dragMode.value = null
-    saveHistory()
+    saveHistoryFixed()
   }
 }
 
@@ -380,31 +430,8 @@ const onDoubleClick = (event) => {
   }
 }
 
-// ... (keep cloneTexts, resetHistory, saveHistory, restoreHistory, undo, redo but adapted for elements) ...
-const cloneElements = () => elements.value.map(el => ({...el}))
-
-const resetHistory = () => {
-  history.value = []
-  historyStep.value = -1
-  saveHistory()
-}
-
-const saveHistory = () => {
-  history.value = history.value.slice(0, historyStep.value + 1)
-  history.value.push(cloneElements())
-  historyStep.value = history.value.length - 1
-}
-
-const restoreHistory = () => {
-  if (historyStep.value < 0 || !history.value[historyStep.value]) return
-  elements.value = history.value[historyStep.value].map(el => {
-    // Restore image objects if needed (images are references, so shallow copy might be tricky if we replaced images, but here we just move them)
-    // Actually, JSON.stringify kills Image objects. We need a better way or just store props.
-    // For now, let's assume content is preserved if we don't deep clone the Image object itself but the reference.
-    // Wait, JSON.parse(JSON.stringify) WILL kill the Image object.
-    // Fix: Don't use JSON for history. Use shallow copy of props, but keep content ref.
-    return el
-  })
+const selectAll = () => {
+  selectedIds.value = new Set(elements.value.map(e => e.id))
   drawCanvas()
 }
 
@@ -415,18 +442,22 @@ const cloneForHistory = () => {
     return clone
   })
 }
-// Override saveHistory to use cloneForHistory
+
+const resetHistory = () => {
+  history.value = []
+  historyStep.value = -1
+  saveHistoryFixed()
+}
+
 const saveHistoryFixed = () => {
+  // Don't save if no change? (Optional optimization)
   history.value = history.value.slice(0, historyStep.value + 1)
   history.value.push(cloneForHistory())
   historyStep.value = history.value.length - 1
 }
-// Override restoreHistory
+
 const restoreHistoryFixed = () => {
   if (historyStep.value < 0 || !history.value[historyStep.value]) return
-  // Deep copy back? No, just replace array.
-  // We need to be careful about object references.
-  // For this simple app, let's just restore the array structure.
   elements.value = history.value[historyStep.value].map(el => ({...el}))
   drawCanvas()
 }
@@ -479,7 +510,8 @@ const addElement = (el, editImmediately = false) => {
     ...el
   }
   elements.value.push(newEl)
-  selectedId.value = newEl.id
+  selectedIds.value.clear()
+  selectedIds.value.add(newEl.id)
   drawCanvas()
   saveHistoryFixed()
   
@@ -517,17 +549,17 @@ const startEditingText = (el) => {
 }
 
 const deleteSelectedElement = () => {
-  if (!selectedId.value) return
-  elements.value = elements.value.filter(e => e.id !== selectedId.value)
-  selectedId.value = null
+  if (selectedIds.value.size === 0) return
+  elements.value = elements.value.filter(e => !selectedIds.value.has(e.id))
+  selectedIds.value.clear()
   drawCanvas()
   saveHistoryFixed()
 }
 
 const exportImage = () => {
   if (!canvas.value) return
-  const prevSel = selectedId.value
-  selectedId.value = null
+  const prevSel = new Set(selectedIds.value)
+  selectedIds.value.clear()
   drawCanvas()
   
   canvas.value.toBlob(blob => {
@@ -538,15 +570,15 @@ const exportImage = () => {
     link.click()
     URL.revokeObjectURL(url)
     ElMessage.success('已导出 PNG')
-    selectedId.value = prevSel
+    selectedIds.value = prevSel
     drawCanvas()
   }, 'image/png')
 }
 
 const copyImage = async () => {
   if (!canvas.value) return
-  const prevSel = selectedId.value
-  selectedId.value = null
+  const prevSel = new Set(selectedIds.value)
+  selectedIds.value.clear()
   drawCanvas()
   
   try {
@@ -557,15 +589,15 @@ const copyImage = async () => {
   } catch (error) {
     ElMessage.error('复制失败')
   } finally {
-    selectedId.value = prevSel
+    selectedIds.value = prevSel
     drawCanvas()
   }
 }
 
 const getCanvasCoordinates = (event) => {
   const rect = canvas.value.getBoundingClientRect()
-  const scaleX = CANVAS_SIZE / rect.width
-  const scaleY = CANVAS_SIZE / rect.height
+  const scaleX = props.canvasSize / rect.width
+  const scaleY = props.canvasSize / rect.height
   return {
     x: (event.clientX - rect.left) * scaleX,
     y: (event.clientY - rect.top) * scaleY
@@ -577,8 +609,12 @@ watch(() => props.image, (value) => {
   if (value) loadImage(value)
 })
 
+watch(() => props.canvasSize, () => {
+  initCanvas()
+})
+
 const deselectAll = () => {
-  selectedId.value = null
+  selectedIds.value.clear()
   drawCanvas()
 }
 
@@ -589,9 +625,6 @@ defineExpose({
   copyImage,
   toggleTextTool,
   addTextToCanvas: () => {
-    // Compatibility wrapper for App.vue
-    // App.vue calls this to add text from toolbar
-    // We'll just open the dialog or add default text
     isAddingText.value = true
     ElMessage.info('请点击画布添加文字')
   }
@@ -600,11 +633,6 @@ defineExpose({
 
 <template>
   <div class="canvas-editor" @click="deselectAll">
-    <!-- 移除 v-if="!imageLoaded" 占位符，让画布始终显示 -->
-    <!-- <div v-if="!imageLoaded" class="placeholder">
-      <p>👈 从左侧选择一张表情包</p>
-    </div> -->
-
     <canvas
       ref="canvasRef"
       class="canvas"
@@ -628,7 +656,7 @@ defineExpose({
       <button @click="deleteSelectedElement">🗑 删除文字</button>
     </div>
 
-    <el-dialog v-model="showTextDialog" title="文字设置" width="460px">
+    <el-dialog v-model="showTextDialog" title="文字设置" width="460px" append-to-body>
       <el-input
         v-model="textInput"
         type="textarea"
@@ -683,17 +711,12 @@ defineExpose({
   position: relative;
 }
 
-.placeholder {
-  color: #999;
-  font-size: 18px;
-  font-weight: 500;
-}
-
 .canvas {
   aspect-ratio: 1;
   width: 100%;
-  max-width: 620px;
-  max-height: 620px;
+  /* Max width/height will be controlled by parent or style binding now */
+  /* max-width: 620px; */
+  /* max-height: 620px; */
   border: 2px solid #ddd;
   border-radius: 10px;
   background: white;
