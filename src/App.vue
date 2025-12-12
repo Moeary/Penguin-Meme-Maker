@@ -338,7 +338,7 @@ const addText = () => {
         <h3>基础操作</h3>
         <ul>
           <li><strong>选择表情包</strong>：点击左侧列表或粘贴 (Ctrl+V) 外部图片。</li>
-          <li><strong>添加文字</strong>：点击"插入文字模式"或按 <strong>T</strong> 键，然后点击画布。</li>
+          <li><strong>添加文字</strong>：点击"插入文字模式"或按 <strong>T</strong> 键，然后点击画布。输入文字后按 <strong>Ctrl+Enter</strong> 确认，<strong>Enter</strong> 换行。</li>
           <li><strong>多选元素</strong>：按住 <strong>Ctrl</strong> 点击元素，或按 <strong>Ctrl+A</strong> 全选。</li>
         </ul>
         

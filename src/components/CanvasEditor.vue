@@ -214,15 +214,23 @@ const drawCanvas = () => {
       ctx.value.textBaseline = 'middle'
       ctx.value.lineWidth = 4
       ctx.value.strokeStyle = 'rgba(255, 255, 255, 0.85)'
-      ctx.value.strokeText(el.text, 0, 0)
-      ctx.value.fillStyle = el.color
-      ctx.value.fillText(el.text, 0, 0)
+      
+      const lines = el.text.split('\n')
+      const lineHeight = el.size * 1.2
+      const totalHeight = lineHeight * lines.length
+      const startY = -(totalHeight / 2) + (lineHeight / 2)
+      
+      lines.forEach((line, index) => {
+        const y = startY + index * lineHeight
+        ctx.value.strokeText(line, 0, y)
+        ctx.value.fillStyle = el.color
+        ctx.value.fillText(line, 0, y)
+      })
     }
     
     // Draw selection box if selected
     if (selectedIds.value.has(el.id)) {
-      const w = el.type === 'text' ? getTextWidth(el) + 20 : el.width
-      const h = el.type === 'text' ? el.size * 1.2 + 20 : el.height
+      const { w, h } = getElementBounds(el)
       
       ctx.value.strokeStyle = '#667eea'
       ctx.value.lineWidth = 2
@@ -263,13 +271,24 @@ const drawCanvas = () => {
 
 const getTextWidth = (el) => {
   ctx.value.font = `bold ${el.size}px ${el.font}`
-  return ctx.value.measureText(el.text).width
+  const lines = el.text.split('\n')
+  let maxWidth = 0
+  lines.forEach(line => {
+    const w = ctx.value.measureText(line).width
+    if (w > maxWidth) maxWidth = w
+  })
+  return maxWidth
 }
 
 const getElementBounds = (el) => {
-  const w = el.type === 'text' ? getTextWidth(el) + 20 : el.width
-  const h = el.type === 'text' ? el.size * 1.2 + 20 : el.height
-  return { w, h }
+  if (el.type === 'text') {
+    const w = getTextWidth(el) + 20
+    const lines = el.text.split('\n')
+    const h = (el.size * 1.2 * lines.length) + 20
+    return { w, h }
+  } else {
+    return { w: el.width, h: el.height }
+  }
 }
 
 // Transform point from canvas space to element local space
@@ -661,8 +680,8 @@ defineExpose({
         v-model="textInput"
         type="textarea"
         :rows="3"
-        placeholder="输入要添加的文字"
-        @keyup.enter="addTextToCanvas()"
+        placeholder="输入要添加的文字 (Ctrl+Enter 确认)"
+        @keydown.ctrl.enter="addTextToCanvas()"
       />
 
       <div class="dialog-tools">

@@ -35,7 +35,6 @@ const selectImage = (imagePath) => {
             :alt="`meme-${index}`"
             class="meme-thumbnail"
           />
-          <div class="item-label">{{ item.name }}</div>
         </div>
       </div>
     </el-scrollbar>
