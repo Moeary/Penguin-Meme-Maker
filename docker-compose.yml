@@ -4,10 +4,10 @@ services:
   penguin-meme-maker:
     build: .
     ports:
-      - "3000:3000"
+      - "5173:5173"
     volumes:
       - ./public/meme-base:/app/public/meme-base # 允许将宿主机的表情包目录挂载到容器中
     restart: always
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=5173

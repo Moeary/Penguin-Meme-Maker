@@ -28,7 +28,7 @@ COPY --from=build-stage /app/public ./public
 COPY --from=build-stage /app/server.js ./server.js
 
 # Expose the port the app runs on
-EXPOSE 3000
+EXPOSE 5173
 
 # Start the application
 CMD ["node", "server.js"]
