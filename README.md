@@ -4,7 +4,7 @@
 
 郑重申明,本项目的表情包来源于网络,如有侵权我将立马删除
 
-## 🚀 在线使用
+## 在线使用
 
 本项目已部署在 [Vercel](https://penguin-meme-maker.vercel.app/ ) 上，可直接访问。
 ![](https://raw.githubusercontent.com/Moeary/pic_bed/main/img/202511260954885.png)
@@ -39,15 +39,17 @@
 - 双击文字可重新编辑内容。
 - 点击画布空白处可取消当前选中。
 
-## 🛠️ 本地开发与部署
+## 本地开发与部署
 
 如果你想在本地运行或自行部署，请按照以下步骤操作。
 
 ### 环境要求
 - **Node.js**: `v22.21.1` (推荐使用此版本以确保兼容性)
-
+- **npm**: `v9.6.7` (通常随 Node.js 一起安装)
+- **Docker**: 可选，用于容器化部署(仅在使用docker部署时有效)
 ### 安装与运行
 
+#### 从源代码运行
 1. **克隆项目**
    ```bash
    git clone https://github.com/Moeary/Penguin-Meme-Maker.git
@@ -69,6 +71,17 @@
    ```bash
    npm run build
    ```
+
+#### 从Docker运行
+1. **构建Docker镜像**
+   ```bash
+   docker build -t penguin-meme-maker .
+   ```
+2. **运行Docker容器**
+   ```bash
+   docker run -d -p 5173:5173 --name penguin-meme-maker
+   ```
+   访问 `http://localhost:5173` 即可使用。
 
 ## 🎨 自定义表情包库 (Meme Base)
 
@@ -97,7 +110,10 @@ python scripts/generate_manifest.py
 
 ## 🎈TODOLIST
 
-1. 考虑使用CDN存储表情包图片,加速访问
+1. ~~考虑使用CDN存储表情包图片,加速访问~~
+```
+想了下 貌似不太现实,把图片加载使用懒加载格式了,用vercel应该就够用了
+```
 2. 在QQ群里面大肆宣传(逃
 3. 加入更多的表情?(考虑加入一下做熊猫头的,实在是太经典了)
 

@@ -1,13 +1,35 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElScrollbar, ElEmpty } from 'element-plus'
 import memesList from 'virtual-memes-list'
 
 const emit = defineEmits(['select'])
 const localImages = ref(memesList || [])
+const displayLimit = ref(30)
+const scrollbarRef = ref(null)
+
+const filteredImages = computed(() => {
+  return localImages.value.slice(0, displayLimit.value)
+})
 
 const selectImage = (imagePath) => {
   emit('select', imagePath)
+}
+
+const handleScroll = ({ scrollTop }) => {
+  if (scrollbarRef.value) {
+    // scrollbarRef.value is the ElScrollbar instance
+    // el-scrollbar-wrap is the scrolling element
+    const wrap = scrollbarRef.value.wrapRef
+    if (wrap) {
+      const { scrollHeight, clientHeight } = wrap
+      if (scrollTop + clientHeight >= scrollHeight - 150) {
+        if (displayLimit.value < localImages.value.length) {
+          displayLimit.value += 30
+        }
+      }
+    }
+  }
 }
 </script>
 
@@ -18,14 +40,18 @@ const selectImage = (imagePath) => {
       <span class="count">{{ localImages.length }}</span>
     </div>
     
-    <el-scrollbar class="meme-scroll">
+    <el-scrollbar 
+      ref="scrollbarRef" 
+      class="meme-scroll" 
+      @scroll="handleScroll"
+    >
       <div v-if="localImages.length === 0" class="empty-state">
         <el-empty description="暂无表情包" />
       </div>
       
       <div v-else class="image-grid">
         <div 
-          v-for="(item, index) in localImages" 
+          v-for="(item, index) in filteredImages" 
           :key="index"
           class="meme-item"
           @click="selectImage(item.path)"
@@ -34,6 +60,7 @@ const selectImage = (imagePath) => {
             :src="item.path" 
             :alt="`meme-${index}`"
             class="meme-thumbnail"
+            loading="lazy"
           />
         </div>
       </div>
